@@ -22,8 +22,18 @@ type scale struct {
 }
 
 var scales = []scale{
-	scale{name: "Major", steps: []uint8{0, 2, 4, 5, 7, 9, 11}},
-	scale{name: "Natural Minor", steps: []uint8{0, 2, 3, 5, 7, 8, 10}},
+	scale{name: "Major (Ionian)", steps: []uint8{0, 2, 4, 5, 7, 9, 11}},
+	scale{name: "Major Pentatonic", steps: []uint8{0, 2, 4, 7, 9}},
+	scale{name: "Major Blues", steps: []uint8{0, 2, 3, 4, 7, 9}},
+	scale{name: "Minor Natural (Aeolian)", steps: []uint8{0, 2, 3, 5, 7, 8, 10}},
+	scale{name: "Minor Harmonic", steps: []uint8{0, 2, 3, 5, 7, 8, 11}},
+	scale{name: "Minor Pentatonic", steps: []uint8{0, 3, 5, 7, 10}},
+	scale{name: "Minor Blues", steps: []uint8{0, 3, 5, 6, 7, 10}},
+	scale{name: "Dorian", steps: []uint8{0, 2, 3, 5, 7, 9, 10}},
+	scale{name: "Phrygian", steps: []uint8{0, 1, 2, 5, 7, 8, 10}},
+	scale{name: "Lydian", steps: []uint8{0, 2, 4, 6, 7, 9, 11}},
+	scale{name: "Mixolydian", steps: []uint8{0, 2, 4, 5, 7, 9, 10}},
+	scale{name: "Locrian", steps: []uint8{0, 1, 3, 5, 6, 8, 10}},
 }
 
 var midiDeviceName = "Midi Fighter 3D"
