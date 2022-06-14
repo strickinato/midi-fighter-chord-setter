@@ -16,13 +16,17 @@ type noOp struct{}
 type errMsg struct{ err error }
 
 type scale struct {
-	name string
+	name  string
+	steps []uint8
 }
 
-var scales = []list.Item{
-	scale{name: "Major"},
-	scale{name: "Minor"},
+var scales = []scale{
+	scale{name: "Major", steps: []uint8{0, 2, 4, 5, 7, 9, 11}},
+	scale{name: "Natural Minor", steps: []uint8{0, 2, 3, 5, 7, 8, 10}},
 }
+
+var midiDeviceName = "Midi Fighter 3D"
+var midiChannel uint8 = 2 // 3, but 0 indexed
 
 func (s scale) FilterValue() string { return s.name }
 func (s scale) Title() string       { return s.name }
@@ -34,7 +38,13 @@ type model struct {
 }
 
 func initialModel() model {
-	scaleList := list.New(scales, list.NewDefaultDelegate(), 10, 50)
+
+	var items []list.Item = make([]list.Item, len(scales))
+	for i, d := range scales {
+		items[i] = d
+	}
+
+	scaleList := list.New(items, list.NewDefaultDelegate(), 10, 50)
 	scaleList.Title = "Scales"
 	return model{
 		send:      nil,
@@ -42,18 +52,61 @@ func initialModel() model {
 	}
 }
 
+type Illumination uint8
+
+const (
+	Root   Illumination = 0
+	Member              = 1
+	Blank               = 2
+)
+
+func illuminationMap(illumination Illumination) uint8 {
+	switch {
+	case illumination == Root:
+		return 91 // purple
+	case illumination == Member:
+		return 55 // green
+	}
+
+	return 1
+}
+
+func notesForScale(root uint8, scale scale) map[uint8]Illumination {
+	note := uint8(36) // C2
+	rootDiff := root % 12
+	m := make(map[uint8]Illumination)
+	for note < 100 {
+		if note%12 == rootDiff {
+			m[note] = Root
+		} else if contains(scale.steps, (note-rootDiff)%12) {
+			m[note] = Member
+		} else {
+			m[note] = Blank
+		}
+
+		note = note + 1
+	}
+	return m
+}
+
 func playNote(send func(msg midi.Message) error) tea.Cmd {
 	return func() tea.Msg {
-		send(midi.NoteOn(0, midi.C(3), 100))
+		noteMap := notesForScale(midi.C(2), scales[0])
+		for note, illumination := range noteMap {
+			print(note)
+			print("-")
+			println(illuminationMap(illumination))
+			send(midi.NoteOn(midiChannel, note, illuminationMap(illumination)))
+		}
 		return noOp{}
 	}
 }
 
 func connect() tea.Msg {
-	// fmt.Println(midi.GetInPorts())
-	// fmt.Println(midi.GetOutPorts())
+	fmt.Println(midi.GetInPorts())
+	fmt.Println(midi.GetOutPorts())
 
-	out, err := midi.FindOutPort("butt2")
+	out, err := midi.FindOutPort(midiDeviceName)
 	if err != nil {
 		return errMsg{err}
 	}
@@ -81,7 +134,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		switch msg.String() {
 
-		case "enter":
+		case " ", "enter":
 			if m.send != nil {
 				return m, playNote(m.send)
 			}
@@ -100,10 +153,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	//s := "\nPress q to quit.\n"
+	s := "\nPress q to quit.\n"
 
 	// Send the UI for rendering
-	return m.scaleList.View()
+	return s //m.scaleList.View()
 }
 
 func main() {
@@ -114,4 +167,13 @@ func main() {
 		fmt.Printf("Alas, there's been an error: %v", err)
 		os.Exit(1)
 	}
+}
+
+func contains(set []uint8, key uint8) bool {
+	for _, x := range set {
+		if x == key {
+			return true
+		}
+	}
+	return false
 }
