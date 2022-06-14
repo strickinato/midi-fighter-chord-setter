@@ -33,8 +33,9 @@ func (s scale) Title() string       { return s.name }
 func (s scale) Description() string { return "" }
 
 type model struct {
-	send      (func(msg midi.Message) error)
-	scaleList list.Model
+	send         (func(msg midi.Message) error)
+	scaleList    list.Model
+	selectedRoot SelectedRoot
 }
 
 func initialModel() model {
@@ -44,11 +45,16 @@ func initialModel() model {
 		items[i] = d
 	}
 
-	scaleList := list.New(items, list.NewDefaultDelegate(), 10, 50)
+	scaleList := list.New(items, list.NewDefaultDelegate(), 50, 50)
 	scaleList.Title = "Scales"
+	scaleList.SetFilteringEnabled(false)
+	scaleList.SetShowTitle(false)
+	scaleList.SetShowStatusBar(false)
+	scaleList.SetShowPagination(false)
 	return model{
-		send:      nil,
-		scaleList: scaleList,
+		send:         nil,
+		scaleList:    scaleList,
+		selectedRoot: C,
 	}
 }
 
@@ -71,14 +77,122 @@ func illuminationMap(illumination Illumination) uint8 {
 	return 1
 }
 
-func notesForScale(root uint8, scale scale) map[uint8]Illumination {
+type SelectedRoot uint8
+
+const (
+	C  SelectedRoot = 0
+	Cs              = 1
+	D               = 2
+	Ds              = 3
+	E               = 4
+	F               = 5
+	Fs              = 6
+	G               = 7
+	Gs              = 8
+	A               = 9
+	As              = 10
+	B               = 11
+)
+
+func viewSelectedRoot(r SelectedRoot) string {
+	switch {
+	case r == C:
+		return "C"
+	case r == Cs:
+		return "C#/Db"
+	case r == D:
+		return "D"
+	case r == Ds:
+		return "D#/Eb"
+	case r == E:
+		return "E"
+	case r == F:
+		return "F"
+	case r == Fs:
+		return "F#/Gb"
+	case r == G:
+		return "G"
+	case r == Gs:
+		return "G#/Ab"
+	case r == A:
+		return "A"
+	case r == As:
+		return "A#/Bb"
+	case r == B:
+		return "B"
+	}
+
+	return ""
+
+}
+
+func prevRoot(r SelectedRoot) SelectedRoot {
+	switch {
+	case r == C:
+		return B
+	case r == Cs:
+		return C
+	case r == D:
+		return Cs
+	case r == Ds:
+		return D
+	case r == E:
+		return Ds
+	case r == F:
+		return E
+	case r == Fs:
+		return F
+	case r == G:
+		return Fs
+	case r == Gs:
+		return G
+	case r == A:
+		return Gs
+	case r == As:
+		return A
+	case r == B:
+		return As
+	}
+	return r
+}
+func nextRoot(r SelectedRoot) SelectedRoot {
+	switch {
+	case r == C:
+		return Cs
+	case r == Cs:
+		return D
+	case r == D:
+		return Ds
+	case r == Ds:
+		return E
+	case r == E:
+		return F
+	case r == F:
+		return Fs
+	case r == Fs:
+		return G
+	case r == G:
+		return Gs
+	case r == Gs:
+		return A
+	case r == A:
+		return As
+	case r == As:
+		return B
+	case r == B:
+		return C
+	}
+	return r
+}
+
+func notesForScale(selectedRoot SelectedRoot, scale scale) map[uint8]Illumination {
 	note := uint8(36) // C2
-	rootDiff := root % 12
+	root := uint8(selectedRoot)
 	m := make(map[uint8]Illumination)
 	for note < 100 {
-		if note%12 == rootDiff {
+		if note%12 == root {
 			m[note] = Root
-		} else if contains(scale.steps, (note-rootDiff)%12) {
+		} else if contains(scale.steps, (note-root)%12) {
 			m[note] = Member
 		} else {
 			m[note] = Blank
@@ -89,22 +203,20 @@ func notesForScale(root uint8, scale scale) map[uint8]Illumination {
 	return m
 }
 
-func playNote(send func(msg midi.Message) error) tea.Cmd {
+func sendMidiData(model model) tea.Cmd {
 	return func() tea.Msg {
-		noteMap := notesForScale(midi.C(2), scales[0])
+		var selectedScale scale = model.scaleList.SelectedItem().(scale)
+		noteMap := notesForScale(model.selectedRoot, selectedScale)
 		for note, illumination := range noteMap {
-			print(note)
-			print("-")
-			println(illuminationMap(illumination))
-			send(midi.NoteOn(midiChannel, note, illuminationMap(illumination)))
+			model.send(midi.NoteOn(midiChannel, note, illuminationMap(illumination)))
 		}
 		return noOp{}
 	}
 }
 
 func connect() tea.Msg {
-	fmt.Println(midi.GetInPorts())
-	fmt.Println(midi.GetOutPorts())
+	// fmt.Println(midi.GetInPorts())
+	// fmt.Println(midi.GetOutPorts())
 
 	out, err := midi.FindOutPort(midiDeviceName)
 	if err != nil {
@@ -136,8 +248,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case " ", "enter":
 			if m.send != nil {
-				return m, playNote(m.send)
+				return m, sendMidiData(m)
 			}
+			return m, nil
+
+		case "h", "left":
+			m.selectedRoot = prevRoot(m.selectedRoot)
+			return m, nil
+
+		case "l", "right":
+			m.selectedRoot = nextRoot(m.selectedRoot)
 			return m, nil
 
 		case "ctrl+c", "q":
@@ -153,10 +273,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	s := "\nPress q to quit.\n"
+	// s := "\nPress q to quit.\n"
 
 	// Send the UI for rendering
-	return s //m.scaleList.View()
+	return viewSelectedRoot(m.selectedRoot) + "\n" + m.scaleList.View()
 }
 
 func main() {
