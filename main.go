@@ -6,6 +6,7 @@ import (
 
 	list "github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"gitlab.com/gomidi/midi/v2"
 	_ "gitlab.com/gomidi/midi/v2/drivers/portmididrv" // autoregisters driver
@@ -94,7 +95,7 @@ const (
 	B               = 11
 )
 
-func viewSelectedRoot(r SelectedRoot) string {
+func selectedRootName(r SelectedRoot) string {
 	switch {
 	case r == C:
 		return "C"
@@ -272,11 +273,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+var selectedRootStyle = lipgloss.NewStyle().
+	Bold(true).
+	Foreground(lipgloss.Color("#FAFAFA")).
+	Background(lipgloss.Color("#7D56F4")).
+	Padding(0, 1).
+	MarginLeft(2).
+	MarginBottom(2)
+
+var rootHeaderStyle = lipgloss.NewStyle().
+	Bold(true)
+
 func (m model) View() string {
+	rootTitle := rootHeaderStyle.Render("Root: ")
+	rootName := selectedRootStyle.Render(selectedRootName(m.selectedRoot))
 	// s := "\nPress q to quit.\n"
 
 	// Send the UI for rendering
-	return viewSelectedRoot(m.selectedRoot) + "\n" + m.scaleList.View()
+	return rootTitle + rootName + "\n" + m.scaleList.View()
 }
 
 func main() {
