@@ -297,9 +297,6 @@ var rootHeaderStyle = lipgloss.NewStyle().
 func (m model) View() string {
 	rootTitle := rootHeaderStyle.Render("Root: ")
 	rootName := selectedRootStyle.Render(selectedRootName(m.selectedRoot))
-	// s := "\nPress q to quit.\n"
-
-	// Send the UI for rendering
 	return rootTitle + rootName + "\n" + m.scaleList.View()
 }
 
